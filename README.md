@@ -151,6 +151,34 @@ Example ticket:
 * Valid case variations must be normalized consistently.
 * Invalid inputs must produce useful errors without corrupting stored tickets.
 
+## JSON Persistence Format
+
+CampusFlow stores ticket records as a JSON array. Each ticket is a dictionary with these fields:
+
+```json
+[
+  {
+    "id": "T001",
+    "title": "Campus Wi-Fi is down",
+    "category": "Network",
+    "urgency": "high",
+    "affected_users": 15,
+    "priority": "critical",
+    "status": "open",
+    "assigned_to": null,
+    "notes": [
+      {
+        "note_id": "N001",
+        "author": "Ada",
+        "message": "Initial triage started."
+      }
+    ]
+  }
+]
+```
+
+Notes are optional in older data files. When they are absent after a load, the application normalizes them to an empty list instead of overwriting the source file. The save operation writes to a temporary file and then replaces the original file atomically so a crash cannot corrupt the current dataset.
+
 ## 6. Priority Calculation Rules
 
 Ticket priority is calculated using ordinary Python business logic. AI is not used to determine ticket priority at runtime.

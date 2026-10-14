@@ -1,134 +1,155 @@
+import copy
 
-import json
-import os
+from campusflow.errors import ValidationError
+from campusflow.storage import load_tickets, save_tickets
+from campusflow.validation import (
+    calculate_priority as compute_priority,
+    ticket_id_number,
+    validate_affected_users as validate_affected_users_value,
+    validate_category as validate_category_value,
+    validate_staff_label as validate_staff_label_value,
+    validate_ticket,
+    validate_title as validate_title_value,
+    validate_urgency as validate_urgency_value,
+)
 
-ticket_dict = {}
 FILENAME = "tickets.json"
-
 allowed_categories = ("Network", "Hardware", "Software", "Other")
 allowed_urgencies = ("low", "medium", "high")
 
 
-
-def validate_title() -> str:
+def validate_title(value=None, input_fn=None, output_fn=None) -> str:
+    if value is not None:
+        return validate_title_value(value)
+    input_fn = input if input_fn is None else input_fn
+    output_fn = print if output_fn is None else output_fn
     while True:
-        title = input("Ticket title: ").strip()
-        if title:
-            return title
-        print("Title field must not be empty")
+        title = input_fn("Ticket title: ").strip()
+        try:
+            return validate_title_value(title)
+        except ValidationError:
+            output_fn("Title field must not be empty")
 
 
-def validate_category() -> str:
+def validate_category(value=None, input_fn=None, output_fn=None) -> str:
+    if value is not None:
+        return validate_category_value(value)
+    input_fn = input if input_fn is None else input_fn
+    output_fn = print if output_fn is None else output_fn
     while True:
-        category = input(
+        category = input_fn(
             "Select category (Network, Software, Hardware, Other): "
-        ).strip().capitalize()
-
-        if category in allowed_categories:
-            return category
-        print("Unsupported category. Please try again.")
-
-
-def validate_urgency() -> str:
-    while True:
-        urgency = input(
-            "Urgency level (high, medium or low): "
-        ).strip().lower()
-
-        if urgency in allowed_urgencies:
-            return urgency
-        print("Invalid urgency. Enter low, medium, or high.")
-
-
-def validate_affected_users() -> int:
-    while True:
-        affected_users = input(
-            "Number of affected users: "
         ).strip()
+        try:
+            return validate_category_value(category)
+        except ValidationError:
+            output_fn("Unsupported category. Please try again.")
 
-        if affected_users.isdigit() and int(affected_users) > 0:
-            return int(affected_users)
 
-        print("Entry must be a positive integer greater than 0")
+def validate_urgency(value=None, input_fn=None, output_fn=None) -> str:
+    if value is not None:
+        return validate_urgency_value(value)
+    input_fn = input if input_fn is None else input_fn
+    output_fn = print if output_fn is None else output_fn
+    while True:
+        urgency = input_fn("Urgency level (high, medium or low): ").strip()
+        try:
+            return validate_urgency_value(urgency)
+        except ValidationError:
+            output_fn("Invalid urgency. Enter low, medium, or high.")
+
+
+def validate_affected_users(value=None, input_fn=None, output_fn=None) -> int:
+    if value is not None:
+        return validate_affected_users_value(value)
+    input_fn = input if input_fn is None else input_fn
+    output_fn = print if output_fn is None else output_fn
+    while True:
+        affected_users = input_fn("Number of affected users: ").strip()
+        try:
+            parsed = int(affected_users)
+        except ValueError:
+            output_fn("Entry must be a positive integer greater than 0")
+            continue
+        try:
+            return validate_affected_users_value(parsed)
+        except ValidationError:
+            output_fn("Entry must be a positive integer greater than 0")
 
 
 def calculate_priority(urgency: str, affected_users: int) -> str:
-    if urgency == "high" and affected_users >= 10:
-        return "critical"
-    elif urgency == "high" or affected_users >= 10:
-        return "high"
-    elif urgency == "medium" or affected_users >= 3:
-        return "medium"
-    else:
-        return "low"
+    return compute_priority(urgency, affected_users)
 
 
 def save_ticket(ticket: dict):
-    filename = FILENAME
-
-    if os.path.exists(filename):
-        with open(filename, "r") as f:
-            all_tickets = json.load(f)
-
-            if isinstance(all_tickets, dict):
-                all_tickets = [all_tickets]
-    else:
-        all_tickets = []
-
-    all_tickets.append(ticket)
-
-    with open(filename, "w") as f:
-        json.dump(all_tickets, f, indent=4)
+    current = load_tickets(FILENAME)
+    current.append(ticket)
+    save_tickets(FILENAME, current)
 
 
-def create_ticket(tickets: list[dict]) -> dict:
-    last_num = max(
-        (int(ticket["id"][1:]) for ticket in tickets),
+def create_ticket(tickets: list[dict], title=None, category=None, urgency=None, affected_users=None) -> dict:
+    if tickets is None:
+        tickets = []
+
+    if title is None:
+        title = validate_title()
+    if category is None:
+        category = validate_category()
+    if urgency is None:
+        urgency = validate_urgency()
+    if affected_users is None:
+        affected_users = validate_affected_users()
+
+    max_id = max(
+        (
+            ticket_id_number(ticket["id"])
+            for ticket in tickets
+            if isinstance(ticket, dict) and isinstance(ticket.get("id"), str)
+        ),
         default=0,
     )
-
-    ticket_id = f"T{last_num + 1:03d}"
-
+    ticket_id = f"T{max_id + 1:03d}"
     ticket = {
         "id": ticket_id,
-        "title": validate_title(),
-        "category": validate_category(),
-        "urgency": validate_urgency(),
-        "affected_users": validate_affected_users(),
-        "priority": "",
+        "title": validate_title_value(title),
+        "category": validate_category_value(category),
+        "urgency": validate_urgency_value(urgency),
+        "affected_users": validate_affected_users_value(affected_users),
+        "priority": compute_priority(
+            validate_urgency_value(urgency),
+            validate_affected_users_value(affected_users),
+        ),
         "status": "open",
         "assigned_to": None,
+        "notes": [],
     }
-
-    ticket["priority"] = calculate_priority(
-        ticket["urgency"],
-        ticket["affected_users"],
-    )
-
+    validate_ticket(ticket)
     tickets.append(ticket)
-
-    print(f"Ticket {ticket_id} created successfully.")
     return ticket
 
 
-def list_tickets(tickets: list[dict]) -> None:
+def list_tickets(tickets: list[dict], output_fn=print) -> None:
     if not tickets:
-        print("No tickets found.")
+        output_fn("No tickets found.")
         return
 
     for ticket in tickets:
         for key, value in ticket.items():
-            print(f"{key}: {value}")
-        print()
+            output_fn(f"{key}: {value}")
+        output_fn("")
 
 
-def view_ticket(tickets: list[dict]) -> None:
-    ticket_id = input("Input ticket ID: ").strip().upper()
+def view_ticket(tickets: list[dict], input_fn=input, output_fn=print) -> None:
+    ticket_id = input_fn("Input ticket ID: ").strip().upper()
 
     for ticket in tickets:
-        if ticket["id"] == ticket_id:
+        if ticket.get("id", "").upper() == ticket_id:
             for key, value in ticket.items():
-                print(f"{key}: {value}")
+                output_fn(f"{key}: {value}")
             return
 
-    print("Ticket not found.")
+    output_fn("Ticket not found.")
+
+
+def validate_staff_label(value):
+    return validate_staff_label_value(value)

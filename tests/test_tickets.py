@@ -115,27 +115,26 @@ class TestTicketOperations(unittest.TestCase):
 
         self.assertEqual(ticket["id"], "T008")
 
-    
-@patch("builtins.print")
-def test_list_tickets_displays_ticket(self, mock_print):
-    tickets = [
-        {
-            "id": "T001",
-            "title": "Internet is down",
-            "priority": "critical",
-            "status": "open",
-        }
-    ]
+    @patch("builtins.print")
+    def test_list_tickets_displays_ticket(self, mock_print):
+        tickets = [
+            {
+                "id": "T001",
+                "title": "Internet is down",
+                "priority": "critical",
+                "status": "open",
+            }
+        ]
 
-    list_tickets(tickets)
+        list_tickets(tickets)
 
-    output = " ".join(
-        str(call.args[0]) if call.args else ""
-        for call in mock_print.call_args_list
-    )
+        output = " ".join(
+            str(call.args[0]) if call.args else ""
+            for call in mock_print.call_args_list
+        )
 
-    self.assertIn("T001", output)
-    self.assertIn("Internet is down", output)
+        self.assertIn("T001", output)
+        self.assertIn("Internet is down", output)
 
     @patch("builtins.print")
     def test_list_tickets_handles_empty_list(self, mock_print):

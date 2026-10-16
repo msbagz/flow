@@ -36,7 +36,8 @@ def build_report(tickets):
 
 
 def format_report(report):
-    lines = [f"Total tickets: {report.get('total', 0)}"]
+    # Only the report output gets the extra heading; list/search views remain unchanged.
+    lines = ["Ticket Report", "", f"Total tickets: {report.get('total', 0)}"]
     lines.append("Status breakdown:")
     for key in ("open", "in_progress", "resolved"):
         lines.append(f"  {key}: {report.get('by_status', {}).get(key, 0)}")

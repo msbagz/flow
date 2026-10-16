@@ -128,7 +128,8 @@ def create_ticket(tickets: list[dict], title=None, category=None, urgency=None, 
     return ticket
 
 
-def list_tickets(tickets: list[dict], output_fn=print) -> None:
+def list_tickets(tickets: list[dict], output_fn=None) -> None:
+    output_fn = print if output_fn is None else output_fn
     if not tickets:
         output_fn("No tickets found.")
         return
@@ -139,7 +140,9 @@ def list_tickets(tickets: list[dict], output_fn=print) -> None:
         output_fn("")
 
 
-def view_ticket(tickets: list[dict], input_fn=input, output_fn=print) -> None:
+def view_ticket(tickets: list[dict], input_fn=None, output_fn=None) -> None:
+    input_fn = input if input_fn is None else input_fn
+    output_fn = print if output_fn is None else output_fn
     ticket_id = input_fn("Input ticket ID: ").strip().upper()
 
     for ticket in tickets:
